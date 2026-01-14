@@ -69,6 +69,7 @@ export interface Card {
   notes: Note[];
   tags: Tag[];
   history: PhaseHistory[];
+  archived?: boolean; // Nova propriedade
 }
 
 // Para o formulário de criação

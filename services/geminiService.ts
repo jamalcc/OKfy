@@ -1,22 +1,12 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
-// CORREÇÃO DE SEGURANÇA: Usando import.meta.env (Vite Standard)
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-// Fallback para evitar crash se a chave não estiver configurada, mas logando erro
-if (!apiKey) {
-  console.error("VITE_GEMINI_API_KEY não encontrada no .env");
-}
-
-const ai = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
+// Initialize the GoogleGenAI client with the API key from process.env.API_KEY
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generatePipelineFromPrompt = async (userPrompt: string) => {
-  if (!apiKey) throw new Error("API Key não configurada");
-
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash', // Atualizado para modelo mais recente e rápido se disponível, ou mantenha 1.5-flash
+      model: 'gemini-3-flash-preview',
       contents: `Você é um Arquiteto de Processos Sênior. 
       O usuário quer um pipeline Kanban para: "${userPrompt}".
       
@@ -25,7 +15,7 @@ export const generatePipelineFromPrompt = async (userPrompt: string) => {
       2. 'suggestedFields': Lista de campos sugeridos para este tipo de processo.
       
       As fases devem ter nomes de ação ou estado (ex: "Triagem", "Em Análise", "Concluído").
-      Use cores profissionais.`,
+      Use cores profissionais e distintas.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {

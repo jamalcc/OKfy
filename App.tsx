@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Phase, NewLeadFormData } from './types';
-import { generatePipelineFromPrompt } from './services/geminiService';
-import { Sidebar } from './components/Sidebar';
+import { Navbar } from './components/Navbar';
 import { KanbanBoard } from './components/KanbanBoard';
 import { LeadModal } from './components/LeadModal';
+import { CardModal } from './components/CardModal';
+import { generatePipelineFromPrompt } from './services/geminiService';
 
 // ==========================================
 // CONFIGURAÇÃO INICIAL
@@ -14,8 +15,7 @@ const INITIAL_PHASES: Phase[] = [
   { name: 'FASE DA MARIANA', color: '#DB2777' }, 
   { name: 'CONSULTA AOS BANCOS', color: '#6366F1' },
   { name: 'ENTREVISTA', color: '#F59E0B' },
-  { name: 'ENVIAR CONTRATO', color: '#8B5CF6' },
-  { name: 'CONTRATO ASSINADO', color: '#10B981' },
+  { name: 'ASSINATURA DO CONTRATO', color: '#8B5CF6' },
   { name: 'FINALIZADO', color: '#10B981' }, 
   { name: 'RECUSADO', color: '#EF4444' }
 ];
@@ -51,9 +51,17 @@ const INITIAL_CARDS: Card[] = [
 // ==========================================
 
 const App: React.FC = () => {
-  // --- Estados Globais ---
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // --- Estados Globais (UX: Persistência do Tema) ---
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('okfy_theme');
+      return saved === 'dark';
+    }
+    return false;
+  });
+
   const [activeTab, setActiveTab] = useState<'kanban' | 'dashboard'>('kanban');
+  const [searchQuery, setSearchQuery] = useState('');
   
   // --- Estados de Dados ---
   const [phases, setPhases] = useState<Phase[]>(INITIAL_PHASES);
@@ -64,8 +72,16 @@ const App: React.FC = () => {
   const [dropTargetPhase, setDropTargetPhase] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
+  
+  // --- Estado IA ---
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // --- Efeitos ---
+  useEffect(() => {
+    localStorage.setItem('okfy_theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   // --- Funções Utilitárias ---
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
@@ -79,13 +95,22 @@ const App: React.FC = () => {
     return `${min}m`;
   };
 
-  // Funções de Validação (CPF/Phone)
   const validateCPF = (cpf: string) => {
     const cleanCPF = cpf.replace(/\D/g, '');
     if (cleanCPF.length !== 11 || /^(\d)\1{10}$/.test(cleanCPF)) return false;
-    // (Lógica completa de CPF aqui simplificada para brevidade da refatoração)
-    return true; 
+    let sum = 0, remainder;
+    for (let i = 1; i <= 9; i++) sum = sum + parseInt(cleanCPF.substring(i - 1, i)) * (11 - i);
+    remainder = (sum * 10) % 11;
+    if ((remainder === 10) || (remainder === 11)) remainder = 0;
+    if (remainder !== parseInt(cleanCPF.substring(9, 10))) return false;
+    sum = 0;
+    for (let i = 1; i <= 10; i++) sum = sum + parseInt(cleanCPF.substring(i - 1, i)) * (12 - i);
+    remainder = (sum * 10) % 11;
+    if ((remainder === 10) || (remainder === 11)) remainder = 0;
+    if (remainder !== parseInt(cleanCPF.substring(10, 11))) return false;
+    return true;
   };
+
   const formatCPF = (v: string) => v.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   const formatPhone = (v: string) => v.replace(/\D/g, '').slice(0, 11).replace(/^(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
 
@@ -120,29 +145,26 @@ const App: React.FC = () => {
     setDropTargetPhase(null);
   };
 
-  // --- Lógica IA (Gemini) ---
-  const handleGenerateBoard = async () => {
-    if (!aiPrompt.trim()) return;
-    setIsGenerating(true);
-    try {
-      const result = await generatePipelineFromPrompt(aiPrompt);
-      if (result && result.phases) {
-        setPhases(result.phases);
-        // Atualiza cards órfãos para a primeira fase nova
-        setCards(prev => prev.map(c => ({...c, phaseName: result.phases[0].name})));
-        setActiveTab('kanban');
-        alert(`Novo fluxo "${result.name || 'Personalizado'}" gerado com sucesso!`);
-      }
-    } catch (error) {
-      alert("Erro ao gerar fluxo. Verifique sua API Key.");
-    } finally {
-      setIsGenerating(false);
+  const handleUpdateCard = (updatedCard: Card) => {
+    setCards(prev => prev.map(c => c.id === updatedCard.id ? updatedCard : c));
+    setSelectedCard(updatedCard);
+  };
+
+  // --- Funcionalidade de Excluir/Arquivar ---
+  const handleDeleteCard = (cardId: string) => {
+    if (confirm("Tem certeza que deseja excluir permanentemente este lead?")) {
+      setCards(prev => prev.filter(c => c.id !== cardId));
+      setSelectedCard(null);
     }
+  };
+
+  const handleArchiveCard = (cardId: string) => {
+    setCards(prev => prev.map(c => c.id === cardId ? { ...c, archived: true } : c));
+    setSelectedCard(null);
   };
 
   // --- Criação de Lead ---
   const handleCreateLead = (data: NewLeadFormData) => {
-    // Validações básicas já feitas no Modal
     if (!validateCPF(data.cpf)) { alert('CPF Inválido'); return; }
     
     const newCard: Card = {
@@ -162,57 +184,75 @@ const App: React.FC = () => {
     setIsCreatingLead(false);
   };
 
-  const bgMain = isDarkMode ? 'bg-[#121212]' : 'bg-[#F8FAFC]';
+  // --- IA Pipeline Generation ---
+  const handleGeneratePipeline = async () => {
+    if (!aiPrompt.trim()) return;
+    setIsGenerating(true);
+    try {
+      const result = await generatePipelineFromPrompt(aiPrompt);
+      if (result && result.phases) {
+        const newPhases: Phase[] = result.phases;
+        setPhases(newPhases);
+        
+        // Mover cards existentes para a primeira fase nova
+        setCards(prev => prev.map(c => ({
+          ...c,
+          phaseName: newPhases[0].name,
+          phaseUpdatedAt: Date.now(),
+          history: [...c.history, { phaseName: 'MIGRAÇÃO IA', durationMs: 0, color: '#000', timestamp: Date.now() }]
+        })));
+
+        setIsAIModalOpen(false);
+        setAiPrompt('');
+      }
+    } catch (error) {
+      alert("Erro ao gerar pipeline via IA. Verifique sua API Key.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Cores personalizadas
+  const bgMain = isDarkMode ? 'bg-black' : 'bg-[#F8FAFC]';
   const textMain = isDarkMode ? 'text-slate-100' : 'text-slate-900';
+  const textMuted = isDarkMode ? 'text-slate-400' : 'text-slate-500';
+
+  // Filtragem (Busca e Arquivados)
+  const filteredCards = cards.filter(card => {
+    if (card.archived) return false; // Não mostra arquivados
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return card.title.toLowerCase().includes(q) || card.data.cpf.includes(q) || card.id.includes(q);
+  });
 
   return (
-    <div className={`h-screen w-screen flex font-sans overflow-hidden transition-colors duration-300 ${bgMain} ${textMain}`}>
+    <div className={`h-screen w-screen flex flex-col font-sans overflow-hidden transition-colors duration-300 ${bgMain} ${textMain}`}>
       
-      <Sidebar 
+      {/* NAVBAR */}
+      <Navbar 
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
         isDarkMode={isDarkMode} 
         toggleTheme={toggleTheme}
         onCreateLead={() => setIsCreatingLead(true)}
+        onOpenAI={() => setIsAIModalOpen(true)}
       />
 
       <main className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Top Header Simplificado */}
-        <header className={`h-16 border-b flex items-center px-6 justify-between ${isDarkMode ? 'border-neutral-800 bg-[#1E1E1E]' : 'border-slate-200 bg-white'}`}>
-           <h1 className="font-bold text-lg">{activeTab === 'kanban' ? 'Pipeline de Vendas' : 'Inteligência Artificial'}</h1>
-           {activeTab === 'kanban' && <div className="text-xs opacity-50">{cards.length} Leads Ativos</div>}
-        </header>
-
         {activeTab === 'dashboard' ? (
-           <div className="flex-1 p-8 flex flex-col items-center justify-center max-w-2xl mx-auto w-full">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white mb-6 shadow-xl">
-                 <i className="fas fa-magic text-2xl"></i>
+           <div className="flex-1 p-8 flex flex-col items-center justify-center w-full animate-in fade-in duration-500">
+              <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mb-6 shadow-2xl ${isDarkMode ? 'bg-[#1E1E1E]' : 'bg-white'}`}>
+                 <i className={`fas fa-chart-pie text-4xl ${isDarkMode ? 'text-[#E29D1B]' : 'text-[#233F93]'}`}></i>
               </div>
-              <h2 className="text-2xl font-black mb-2 text-center">Gerador de Fluxos com IA</h2>
-              <p className="text-center opacity-60 mb-8 max-w-md">Descreva como sua empresa trabalha e nossa IA criará o Kanban perfeito com as fases, cores e campos ideais.</p>
-              
-              <div className={`w-full p-1 rounded-xl border flex shadow-sm ${isDarkMode ? 'bg-neutral-900 border-neutral-700' : 'bg-white border-slate-300'}`}>
-                 <input 
-                    type="text" 
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                    placeholder="Ex: Processo de vendas de painéis solares com vistoria..." 
-                    className="flex-1 bg-transparent px-4 py-3 outline-none"
-                    disabled={isGenerating}
-                 />
-                 <button 
-                    onClick={handleGenerateBoard}
-                    disabled={isGenerating}
-                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all"
-                 >
-                    {isGenerating ? <i className="fas fa-circle-notch fa-spin"></i> : 'Gerar'}
-                 </button>
-              </div>
+              <h2 className="text-3xl font-black mb-2 text-center tracking-tight">Dashboard</h2>
+              <p className={`text-center mb-8 max-w-md ${textMuted}`}>Visualização de métricas e performance em construção.</p>
            </div>
         ) : (
           <KanbanBoard 
             phases={phases}
-            cards={cards}
+            cards={filteredCards}
             isDarkMode={isDarkMode}
             onDragStart={handleDragStart}
             onDrop={handleDrop}
@@ -235,23 +275,56 @@ const App: React.FC = () => {
         validateCPF={validateCPF}
       />
       
-      {/* Modal de Detalhes do Card (Mantido simplificado ou extrair futuramente) */}
       {selectedCard && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setSelectedCard(null)}>
-           <div className={`bg-white p-8 rounded-xl max-w-lg w-full ${isDarkMode ? 'bg-neutral-800' : ''}`} onClick={e => e.stopPropagation()}>
-              <h2 className="text-2xl font-bold mb-4">{selectedCard.title}</h2>
-              <p className="opacity-70 mb-6">Este card está na fase: <strong>{selectedCard.phaseName}</strong></p>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                 <div className="p-3 border rounded">
-                    <span className="block text-xs font-bold opacity-50 uppercase">Email</span>
-                    {selectedCard.data.email}
-                 </div>
-                 <div className="p-3 border rounded">
-                    <span className="block text-xs font-bold opacity-50 uppercase">CPF</span>
-                    {selectedCard.data.cpf}
-                 </div>
-              </div>
-           </div>
+        <CardModal 
+          card={selectedCard}
+          phases={phases}
+          onClose={() => setSelectedCard(null)}
+          onUpdate={handleUpdateCard}
+          onDelete={handleDeleteCard}
+          onArchive={handleArchiveCard}
+          isDarkMode={isDarkMode}
+          formatCPF={formatCPF}
+          formatPhone={formatPhone}
+          validateCPF={validateCPF}
+        />
+      )}
+
+      {/* Modal IA Simplificado */}
+      {isAIModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !isGenerating && setIsAIModalOpen(false)}></div>
+          <div className={`relative w-full max-w-lg rounded-2xl shadow-2xl p-6 ${isDarkMode ? 'bg-[#1E1E1E] text-white' : 'bg-white text-slate-900'} border ${isDarkMode ? 'border-neutral-700' : 'border-slate-200'}`}>
+             <h2 className="text-lg font-black uppercase tracking-wide mb-4 flex items-center gap-2">
+               <i className={`fas fa-wand-magic-sparkles ${isDarkMode ? 'text-[#E29D1B]' : 'text-[#233F93]'}`}></i>
+               Gerar Fluxo com IA
+             </h2>
+             <p className={`text-sm mb-4 ${textMuted}`}>Descreva o processo que você deseja (ex: "Processo de Vendas B2B" ou "Recrutamento de TI") e a IA criará as fases automaticamente.</p>
+             <textarea 
+               value={aiPrompt}
+               onChange={(e) => setAiPrompt(e.target.value)}
+               className={`w-full h-24 p-3 rounded-xl text-sm font-medium outline-none border focus:ring-2 transition-all resize-none ${isDarkMode ? 'bg-black border-neutral-700 focus:ring-[#E29D1B]' : 'bg-slate-50 border-slate-200 focus:ring-[#233F93]'}`}
+               placeholder="Ex: Pipeline de Venda de Imóveis de Luxo..."
+               disabled={isGenerating}
+             />
+             <div className="flex justify-end gap-3 mt-4">
+                <button 
+                  onClick={() => setIsAIModalOpen(false)} 
+                  disabled={isGenerating}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase ${textMuted} hover:opacity-80`}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleGeneratePipeline}
+                  disabled={isGenerating || !aiPrompt.trim()}
+                  className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-wide flex items-center gap-2 ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#E29D1B] text-black' : 'bg-[#233F93] text-white'}`}
+                >
+                  {isGenerating ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-bolt"></i>}
+                  {isGenerating ? 'Gerando...' : 'Gerar Pipeline'}
+                </button>
+             </div>
+          </div>
         </div>
       )}
     </div>
