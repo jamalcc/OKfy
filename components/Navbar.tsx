@@ -2,18 +2,18 @@
 import React from 'react';
 
 interface NavbarProps {
-  searchQuery?: string;
+  searchQuery: string;
   setSearchQuery: (q: string) => void;
   activeTab: 'kanban' | 'dashboard';
   setActiveTab: (tab: 'kanban' | 'dashboard') => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
   onCreateLead: () => void;
-  onOpenAI?: () => void; // Nova prop para IA
+  onOpenAI?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  searchQuery = '',
+  searchQuery,
   setSearchQuery,
   activeTab,
   setActiveTab,
@@ -22,80 +22,58 @@ export const Navbar: React.FC<NavbarProps> = ({
   onCreateLead,
   onOpenAI
 }) => {
-  // Paleta de Cores Atualizada (Preto & Amarelo #E29D1B)
-  const bgCard = isDarkMode ? 'bg-[#121212]' : 'bg-white';
-  const borderSubtle = isDarkMode ? 'border-neutral-800' : 'border-slate-200';
-  const textMuted = isDarkMode ? 'text-slate-500' : 'text-slate-500';
-  
-  // Brand Color
-  const bgBrand = isDarkMode ? 'bg-[#E29D1B]' : 'bg-[#233F93]';
-  const textBrand = isDarkMode ? 'text-[#E29D1B]' : 'text-[#233F93]';
-  const textBrandContrast = isDarkMode ? 'text-black' : 'text-white';
+  const bgNav = isDarkMode ? 'bg-[#1E293B]' : 'bg-white';
+  const borderNav = isDarkMode ? 'border-slate-800' : 'border-slate-200';
 
   return (
-    <nav className={`${bgCard} border-b ${borderSubtle} px-6 py-2 flex items-center justify-between sticky top-0 z-40 h-[60px] flex-shrink-0 transition-colors duration-300`}>
-      {/* Logo */}
-      <div className="flex items-center gap-3">
-        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shadow-sm ${bgBrand} ${textBrandContrast}`}>
-          <i className="fas fa-check text-xs"></i>
+    <nav className={`${bgNav} ${borderNav} border-b px-8 py-3 flex items-center justify-between z-40 transition-all duration-300`}>
+      <div className="flex items-center gap-4">
+        <h1 className="text-xl font-black tracking-tight flex items-center gap-2">
+          Workspace Principal
+          <i className="fas fa-chevron-down text-[10px] text-slate-400"></i>
+        </h1>
+        <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
+        <div className="flex items-center gap-1">
+          <button className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 flex items-center justify-center text-slate-400">
+            <i className="fas fa-star text-xs"></i>
+          </button>
+          <button className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 flex items-center justify-center text-slate-400">
+            <i className="fas fa-bell text-xs"></i>
+          </button>
         </div>
-        <span className="text-sm font-bold tracking-tight">
-          OKfy <span className={`${textMuted} font-normal`}>| Workspace A</span>
-        </span>
       </div>
 
-      {/* Search Bar */}
-      <div className="flex-1 max-w-lg mx-auto px-6 hidden md:block">
+      <div className="flex-1 max-w-xl mx-8">
         <div className="relative group">
-          <i className={`fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[10px] ${textMuted}`}></i>
+          <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs transition-colors group-focus-within:text-indigo-500"></i>
           <input 
             type="text" 
             value={searchQuery} 
             onChange={(e) => setSearchQuery(e.target.value)} 
-            placeholder="Buscar leads por nome, CPF ou ID..." 
-            className={`w-full ${isDarkMode ? 'bg-[#1E1E1E] focus:bg-[#252525]' : 'bg-slate-50'} border ${borderSubtle} rounded-full py-2 pl-9 pr-4 text-xs outline-none transition-all focus:border-opacity-50 ${isDarkMode ? 'focus:border-[#E29D1B]' : 'focus:border-[#233F93]'}`} 
+            placeholder="Pesquisar leads, CPF ou emails..." 
+            className={`w-full py-2.5 pl-10 pr-4 rounded-xl text-xs font-medium outline-none border transition-all
+            ${isDarkMode 
+              ? 'bg-slate-900 border-slate-700 focus:border-indigo-500' 
+              : 'bg-slate-50 border-slate-100 focus:bg-white focus:border-indigo-200 focus:shadow-sm'}`} 
           />
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-3">
-        
-        {/* Botão IA (Novo) */}
         {onOpenAI && (
           <button 
             onClick={onOpenAI}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${isDarkMode ? 'bg-[#E29D1B]/10 text-[#E29D1B] hover:bg-[#E29D1B]/20' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
-            title="Gerar Fluxo com IA"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600/10 text-indigo-500 text-xs font-black transition-all hover:bg-indigo-600/20"
           >
-            <i className="fas fa-wand-magic-sparkles text-xs"></i>
+            <i className="fas fa-magic"></i>
+            IA DESIGNER
           </button>
         )}
-
-        <button onClick={toggleTheme} className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-500/10 transition-colors">
-          <i className={`fas ${isDarkMode ? 'fa-sun text-[#E29D1B]' : 'fa-moon'}`}></i>
-        </button>
-        
-        <div className={`hidden lg:flex p-1 rounded-xl border ${borderSubtle} ${isDarkMode ? 'bg-[#1E1E1E]' : 'bg-slate-50'}`}>
-          <button 
-            onClick={() => setActiveTab('dashboard')} 
-            className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all ${activeTab === 'dashboard' ? `${isDarkMode ? 'bg-[#E29D1B] text-black' : 'bg-white shadow-sm text-[#233F93]'}` : `${textMuted} hover:opacity-80`}`}
-          >
-            Dashboard
-          </button>
-          <button 
-            onClick={() => setActiveTab('kanban')} 
-            className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all ${activeTab === 'kanban' ? `${isDarkMode ? 'bg-[#E29D1B] text-black' : 'bg-white shadow-sm text-[#233F93]'}` : `${textMuted} hover:opacity-80`}`}
-          >
-            Kanban
-          </button>
-        </div>
-
         <button 
           onClick={onCreateLead} 
-          className={`px-4 py-2 rounded-xl text-[11px] font-black shadow-lg shadow-black/5 hover:translate-y-[-1px] active:translate-y-[1px] transition-all ${bgBrand} ${textBrandContrast} uppercase tracking-wide`}
+          className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black shadow-lg shadow-indigo-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
         >
-          + Novo Lead
+          + NOVO LEAD
         </button>
       </div>
     </nav>

@@ -13,6 +13,7 @@ interface KanbanBoardProps {
   dropTargetPhase: string | null;
   setDropTargetPhase: (phase: string | null) => void;
   formatDuration: (ms: number) => string;
+  onQuickAdd?: (phaseName: string) => void;
 }
 
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({
@@ -25,93 +26,122 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   draggedCardId,
   dropTargetPhase,
   setDropTargetPhase,
-  formatDuration
+  formatDuration,
+  onQuickAdd
 }) => {
-  // Ajuste de cores para Dark Mode: Cards um pouco mais claros que o fundo preto
-  const bgCard = isDarkMode ? 'bg-[#18181b]' : 'bg-white';
-  const borderSubtle = isDarkMode ? 'border-zinc-800' : 'border-slate-200';
-  const textMuted = isDarkMode ? 'text-zinc-500' : 'text-slate-500';
-  const textMain = isDarkMode ? 'text-zinc-200' : 'text-slate-900';
-  const iconColor = isDarkMode ? 'text-[#E29D1B]' : 'text-[#233F93]';
+  const bgCard = isDarkMode ? 'bg-[#1E293B]' : 'bg-white';
+  const borderSubtle = isDarkMode ? 'border-slate-800' : 'border-slate-200';
+  const textMuted = isDarkMode ? 'text-slate-500' : 'text-slate-500';
 
   return (
-    <div className="flex-1 flex gap-6 overflow-x-auto p-6 items-start scrollbar-thin">
-      {phases.map((phase, idx) => (
-        <div 
-          key={idx} 
-          className={`min-w-[320px] w-[320px] flex flex-col h-full rounded-2xl border p-1 transition-colors ${isDarkMode ? 'bg-black/20 border-zinc-900' : 'bg-slate-100/50 border-slate-200'}`}
-          onDragOver={(e) => { e.preventDefault(); setDropTargetPhase(phase.name); }}
-          onDragLeave={() => setDropTargetPhase(null)}
-          onDrop={(e) => onDrop(e, phase.name)}
-        >
-          {/* Header da Coluna */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-transparent">
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)]" style={{ backgroundColor: phase.color }}></div>
-              <span className="text-[11px] font-black uppercase tracking-widest">{phase.name}</span>
+    <div className="h-full flex gap-4 overflow-x-auto p-6 items-start scrollbar-thin">
+      {phases.map((phase, idx) => {
+        const phaseCards = cards.filter(c => c.phaseName === phase.name);
+        
+        return (
+          <div 
+            key={idx} 
+            className={`flex-shrink-0 w-80 flex flex-col max-h-full rounded-2xl transition-all duration-300 ${isDarkMode ? 'bg-slate-900/40' : 'bg-slate-200/40'}`}
+            onDragOver={(e) => { e.preventDefault(); setDropTargetPhase(phase.name); }}
+            onDragLeave={() => setDropTargetPhase(null)}
+            onDrop={(e) => onDrop(e, phase.name)}
+          >
+            {/* FAIXA COLORIDA TOP (PIPEFY STYLE) */}
+            <div className="h-1 rounded-t-2xl w-full" style={{ backgroundColor: phase.color }}></div>
+
+            {/* HEADER COLUNA */}
+            <div className="px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                  {phase.name}
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-500">
+                  {phaseCards.length}
+                </span>
+              </div>
+              <button className="text-slate-400 hover:text-indigo-500 transition-colors">
+                <i className="fas fa-ellipsis-h text-xs"></i>
+              </button>
             </div>
-            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${isDarkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-white text-slate-600'}`}>
-              {cards.filter(c => c.phaseName === phase.name).length}
-            </span>
-          </div>
 
-          {/* Área de Cards */}
-          <div className={`flex-1 overflow-y-auto px-2 pb-2 rounded-xl transition-all duration-300 scrollbar-thin ${dropTargetPhase === phase.name ? 'bg-indigo-500/5 ring-2 ring-indigo-500/20 ring-dashed' : ''}`}>
-            <div className="space-y-3 mt-2">
-              {cards.filter(c => c.phaseName === phase.name).map(card => {
-                const isDragging = card.id === draggedCardId;
-                return (
-                  <div 
-                    key={card.id} 
-                    draggable 
-                    onDragStart={(e) => onDragStart(e, card.id)} 
-                    onClick={() => onCardClick(card)} 
-                    className={`${bgCard} p-5 rounded-xl border ${borderSubtle} shadow-sm cursor-pointer transition-all duration-200 group
-                      ${isDragging 
-                        ? 'opacity-50 rotate-3 scale-105 shadow-2xl ring-2 ring-indigo-500 z-50' 
-                        : `hover:shadow-lg hover:border-opacity-50 hover:translate-y-[-2px] ${isDarkMode ? 'hover:border-[#E29D1B]' : 'hover:border-[#233F93]'}`}`}
-                  >
-                    {/* Cabeçalho do Card */}
-                    <div className="flex justify-between items-start mb-3">
-                        <h4 className={`font-bold text-base leading-snug ${textMain}`}>{card.title}</h4>
-                        {isDarkMode && <i className={`fas fa-chevron-right text-[10px] opacity-0 group-hover:opacity-100 transition-opacity ${iconColor}`}></i>}
-                    </div>
+            {/* ÁREA DE DROPPING */}
+            <div className={`flex-1 overflow-y-auto px-3 pb-3 min-h-[100px] transition-all scrollbar-thin ${dropTargetPhase === phase.name ? 'bg-indigo-500/5 ring-2 ring-indigo-500/20 ring-inset rounded-b-2xl' : ''}`}>
+              <div className="space-y-3 pt-2">
+                {phaseCards.map(card => {
+                  const isDragging = card.id === draggedCardId;
+                  
+                  // Mock de dados para visual SaaS
+                  const priority = ['High', 'Medium', 'Low'][Math.floor(Math.random() * 3)];
+                  const priorityColors: any = { 
+                    High: 'bg-rose-100 text-rose-700', 
+                    Medium: 'bg-amber-100 text-amber-700', 
+                    Low: 'bg-emerald-100 text-emerald-700' 
+                  };
 
-                    {/* Dados Principais (Expandido) */}
-                    <div className="space-y-1.5 mb-4">
-                        <div className="flex items-center gap-2">
-                             <i className={`fas fa-id-card text-[10px] w-4 text-center ${textMuted}`}></i>
-                             <span className={`text-xs font-medium ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>{card.data.cpf || 'CPF n/a'}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                             <i className={`fas fa-phone text-[10px] w-4 text-center ${textMuted}`}></i>
-                             <span className={`text-xs font-medium ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>{card.data.phone || 'Tel n/a'}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                             <i className={`far fa-calendar text-[10px] w-4 text-center ${textMuted}`}></i>
-                             <span className={`text-[10px] font-semibold uppercase tracking-wide ${textMuted}`}>
-                                Incluído em: {new Date(card.createdAt).toLocaleDateString()}
-                             </span>
-                        </div>
-                    </div>
-
-                    {/* Rodapé do Card */}
-                    <div className={`flex items-center justify-between pt-3 border-t ${isDarkMode ? 'border-zinc-800' : 'border-slate-100'}`}>
-                      <div className={`text-[10px] font-bold ${textMuted} flex items-center gap-1.5`}>
-                        <i className={`far fa-clock ${isDarkMode ? 'text-[#E29D1B]' : 'text-[#233F93]'}`}></i>
-                        {formatDuration(Date.now() - card.phaseUpdatedAt)} na fase
+                  return (
+                    <div 
+                      key={card.id} 
+                      draggable 
+                      onDragStart={(e) => onDragStart(e, card.id)} 
+                      onClick={() => onCardClick(card)} 
+                      className={`${bgCard} p-4 rounded-xl border ${borderSubtle} shadow-sm cursor-pointer transition-all duration-300 group
+                        ${isDragging ? 'opacity-20 scale-95' : 'hover:-translate-y-1 hover:shadow-lg'}`}
+                    >
+                      {/* HEADER CARD */}
+                      <div className="flex justify-between items-start mb-2">
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${priorityColors[priority]}`}>
+                          {priority}
+                        </span>
+                        <button className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-500 transition-all">
+                          <i className="fas fa-pencil-alt text-[10px]"></i>
+                        </button>
                       </div>
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${isDarkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-500'}`}>
-                        {card.data.source}
-                      </span>
+
+                      <h4 className={`font-bold text-sm mb-3 leading-snug ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                        {card.title}
+                      </h4>
+
+                      {/* INFO SECUNDÁRIA */}
+                      <div className="flex items-center justify-between text-[10px] font-bold">
+                        <div className="flex items-center gap-2 text-slate-500">
+                          <i className="fas fa-user-circle"></i>
+                          <span>{card.data.source}</span>
+                        </div>
+                        <div className="text-emerald-500">
+                          R$ {Math.floor(Math.random() * 10000 + 1000).toLocaleString()}
+                        </div>
+                      </div>
+
+                      {/* FOOTER CARD */}
+                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <div className="flex -space-x-1.5 overflow-hidden">
+                           <div className="inline-block h-5 w-5 rounded-full ring-2 ring-white dark:ring-slate-800 bg-indigo-500 flex items-center justify-center text-[8px] text-white">RA</div>
+                        </div>
+                        <div className={`text-[9px] font-bold ${textMuted} flex items-center gap-1`}>
+                          <i className="far fa-clock"></i>
+                          {formatDuration(Date.now() - card.phaseUpdatedAt)}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+
+                {/* BOTÃO ADICIONAR CARD (PIPEFY STYLE) */}
+                <button 
+                  onClick={() => onQuickAdd && onQuickAdd(phase.name)}
+                  className={`w-full py-3 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 text-xs font-bold transition-all
+                  ${isDarkMode 
+                    ? 'border-slate-800 text-slate-500 hover:bg-white/5 hover:border-slate-700' 
+                    : 'border-slate-200 text-slate-400 hover:bg-white hover:border-slate-300 hover:shadow-sm'}`}
+                >
+                  <i className="fas fa-plus"></i>
+                  Adicionar Lead
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

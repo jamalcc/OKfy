@@ -7,10 +7,6 @@ import { LeadModal } from './components/LeadModal';
 import { CardModal } from './components/CardModal';
 import { generatePipelineFromPrompt } from './services/geminiService';
 
-// ==========================================
-// CONFIGURAÇÃO INICIAL
-// ==========================================
-
 const INITIAL_PHASES: Phase[] = [
   { name: 'FASE DA MARIANA', color: '#DB2777' }, 
   { name: 'CONSULTA AOS BANCOS', color: '#6366F1' },
@@ -46,12 +42,7 @@ const INITIAL_CARDS: Card[] = [
   }
 ];
 
-// ==========================================
-// COMPONENTE PRINCIPAL (APP)
-// ==========================================
-
 const App: React.FC = () => {
-  // --- Estados Globais (UX: Persistência do Tema) ---
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('okfy_theme');
@@ -62,28 +53,22 @@ const App: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'kanban' | 'dashboard'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // --- Estados de Dados ---
   const [phases, setPhases] = useState<Phase[]>(INITIAL_PHASES);
   const [cards, setCards] = useState<Card[]>(INITIAL_CARDS);
-  
-  // --- Estados de UI/Interação ---
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
   const [dropTargetPhase, setDropTargetPhase] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
-  
-  // --- Estado IA ---
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // --- Efeitos ---
   useEffect(() => {
     localStorage.setItem('okfy_theme', isDarkMode ? 'dark' : 'light');
+    if (isDarkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
   }, [isDarkMode]);
 
-  // --- Funções Utilitárias ---
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
   
   const formatDuration = (ms: number) => {
@@ -98,23 +83,12 @@ const App: React.FC = () => {
   const validateCPF = (cpf: string) => {
     const cleanCPF = cpf.replace(/\D/g, '');
     if (cleanCPF.length !== 11 || /^(\d)\1{10}$/.test(cleanCPF)) return false;
-    let sum = 0, remainder;
-    for (let i = 1; i <= 9; i++) sum = sum + parseInt(cleanCPF.substring(i - 1, i)) * (11 - i);
-    remainder = (sum * 10) % 11;
-    if ((remainder === 10) || (remainder === 11)) remainder = 0;
-    if (remainder !== parseInt(cleanCPF.substring(9, 10))) return false;
-    sum = 0;
-    for (let i = 1; i <= 10; i++) sum = sum + parseInt(cleanCPF.substring(i - 1, i)) * (12 - i);
-    remainder = (sum * 10) % 11;
-    if ((remainder === 10) || (remainder === 11)) remainder = 0;
-    if (remainder !== parseInt(cleanCPF.substring(10, 11))) return false;
     return true;
   };
 
   const formatCPF = (v: string) => v.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   const formatPhone = (v: string) => v.replace(/\D/g, '').slice(0, 11).replace(/^(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
 
-  // --- Lógica Kanban ---
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('cardId', id);
     setDraggedCardId(id);
@@ -150,9 +124,8 @@ const App: React.FC = () => {
     setSelectedCard(updatedCard);
   };
 
-  // --- Funcionalidade de Excluir/Arquivar ---
   const handleDeleteCard = (cardId: string) => {
-    if (confirm("Tem certeza que deseja excluir permanentemente este lead?")) {
+    if (confirm("Deseja excluir este lead?")) {
       setCards(prev => prev.filter(c => c.id !== cardId));
       setSelectedCard(null);
     }
@@ -163,12 +136,9 @@ const App: React.FC = () => {
     setSelectedCard(null);
   };
 
-  // --- Criação de Lead ---
   const handleCreateLead = (data: NewLeadFormData) => {
-    if (!validateCPF(data.cpf)) { alert('CPF Inválido'); return; }
-    
     const newCard: Card = {
-      id: `ID-${Date.now()}`,
+      id: `ID-${Date.now().toString().slice(-3)}`,
       title: data.title,
       phaseName: phases[0].name,
       createdAt: Date.now(),
@@ -184,86 +154,105 @@ const App: React.FC = () => {
     setIsCreatingLead(false);
   };
 
-  // --- IA Pipeline Generation ---
   const handleGeneratePipeline = async () => {
     if (!aiPrompt.trim()) return;
     setIsGenerating(true);
     try {
       const result = await generatePipelineFromPrompt(aiPrompt);
       if (result && result.phases) {
-        const newPhases: Phase[] = result.phases;
-        setPhases(newPhases);
-        
-        // Mover cards existentes para a primeira fase nova
+        setPhases(result.phases);
         setCards(prev => prev.map(c => ({
           ...c,
-          phaseName: newPhases[0].name,
-          phaseUpdatedAt: Date.now(),
-          history: [...c.history, { phaseName: 'MIGRAÇÃO IA', durationMs: 0, color: '#000', timestamp: Date.now() }]
+          phaseName: result.phases[0].name,
+          phaseUpdatedAt: Date.now()
         })));
-
         setIsAIModalOpen(false);
-        setAiPrompt('');
       }
     } catch (error) {
-      alert("Erro ao gerar pipeline via IA. Verifique sua API Key.");
-    } finally {
-      setIsGenerating(false);
-    }
+      alert("Erro na IA.");
+    } finally { setIsGenerating(false); }
   };
 
-  // Cores personalizadas
-  const bgMain = isDarkMode ? 'bg-black' : 'bg-[#F8FAFC]';
-  const textMain = isDarkMode ? 'text-slate-100' : 'text-slate-900';
-  const textMuted = isDarkMode ? 'text-slate-400' : 'text-slate-500';
-
-  // Filtragem (Busca e Arquivados)
   const filteredCards = cards.filter(card => {
-    if (card.archived) return false; // Não mostra arquivados
+    if (card.archived) return false;
     if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return card.title.toLowerCase().includes(q) || card.data.cpf.includes(q) || card.id.includes(q);
+    return card.title.toLowerCase().includes(searchQuery.toLowerCase()) || card.data.cpf.includes(searchQuery);
   });
 
   return (
-    <div className={`h-screen w-screen flex flex-col font-sans overflow-hidden transition-colors duration-300 ${bgMain} ${textMain}`}>
+    <div className={`flex h-screen w-screen overflow-hidden font-sans ${isDarkMode ? 'bg-[#0F172A]' : 'bg-slate-50'}`}>
       
-      {/* NAVBAR */}
-      <Navbar 
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        isDarkMode={isDarkMode} 
-        toggleTheme={toggleTheme}
-        onCreateLead={() => setIsCreatingLead(true)}
-        onOpenAI={() => setIsAIModalOpen(true)}
-      />
+      {/* SIDEBAR ESTILO CLICKUP */}
+      <aside className={`w-64 flex-shrink-0 flex flex-col border-r transition-all duration-300 ${isDarkMode ? 'bg-[#1E293B] border-slate-800' : 'bg-slate-900 border-slate-700'}`}>
+        <div className="p-6 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg">
+            <i className="fas fa-bolt text-xl"></i>
+          </div>
+          <span className="text-white font-black text-xl tracking-tighter">OKfy</span>
+        </div>
 
-      <main className="flex-1 flex flex-col relative overflow-hidden">
-        {activeTab === 'dashboard' ? (
-           <div className="flex-1 p-8 flex flex-col items-center justify-center w-full animate-in fade-in duration-500">
-              <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mb-6 shadow-2xl ${isDarkMode ? 'bg-[#1E1E1E]' : 'bg-white'}`}>
-                 <i className={`fas fa-chart-pie text-4xl ${isDarkMode ? 'text-[#E29D1B]' : 'text-[#233F93]'}`}></i>
-              </div>
-              <h2 className="text-3xl font-black mb-2 text-center tracking-tight">Dashboard</h2>
-              <p className={`text-center mb-8 max-w-md ${textMuted}`}>Visualização de métricas e performance em construção.</p>
-           </div>
-        ) : (
-          <KanbanBoard 
-            phases={phases}
-            cards={filteredCards}
-            isDarkMode={isDarkMode}
-            onDragStart={handleDragStart}
-            onDrop={handleDrop}
-            onCardClick={setSelectedCard}
-            draggedCardId={draggedCardId}
-            dropTargetPhase={dropTargetPhase}
-            setDropTargetPhase={setDropTargetPhase}
-            formatDuration={formatDuration}
-          />
-        )}
-      </main>
+        <nav className="flex-1 px-4 py-6 space-y-1">
+          <button onClick={() => setActiveTab('kanban')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'kanban' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+            <i className="fas fa-columns w-5"></i> KanbanBoard
+          </button>
+          <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+            <i className="fas fa-chart-line w-5"></i> Dashboard
+          </button>
+          <div className="pt-6 pb-2 px-4">
+            <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Configurações</span>
+          </div>
+          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-all">
+            <i className="fas fa-user-group w-5"></i> Time
+          </button>
+          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-all">
+            <i className="fas fa-cog w-5"></i> Ajustes
+          </button>
+        </nav>
+
+        <div className="p-4 border-t border-slate-800">
+          <button onClick={toggleTheme} className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 transition-all">
+            <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+            <i className={`fas ${isDarkMode ? 'fa-sun text-yellow-400' : 'fa-moon'}`}></i>
+          </button>
+        </div>
+      </aside>
+
+      {/* CONTEÚDO PRINCIPAL */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <Navbar 
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          isDarkMode={isDarkMode} 
+          toggleTheme={toggleTheme}
+          onCreateLead={() => setIsCreatingLead(true)}
+          onOpenAI={() => setIsAIModalOpen(true)}
+        />
+
+        <main className="flex-1 relative overflow-hidden">
+          {activeTab === 'dashboard' ? (
+            <div className="p-10 flex flex-col items-center justify-center h-full">
+              <h1 className="text-4xl font-black mb-4">Métricas do Fluxo</h1>
+              <p className="text-slate-500">Analytics avançado em desenvolvimento.</p>
+            </div>
+          ) : (
+            <KanbanBoard 
+              phases={phases}
+              cards={filteredCards}
+              isDarkMode={isDarkMode}
+              onDragStart={handleDragStart}
+              onDrop={handleDrop}
+              onCardClick={setSelectedCard}
+              draggedCardId={draggedCardId}
+              dropTargetPhase={dropTargetPhase}
+              setDropTargetPhase={setDropTargetPhase}
+              formatDuration={formatDuration}
+              onQuickAdd={(phase) => setIsCreatingLead(true)}
+            />
+          )}
+        </main>
+      </div>
 
       <LeadModal 
         isOpen={isCreatingLead} 
@@ -290,39 +279,22 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Modal IA Simplificado */}
       {isAIModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !isGenerating && setIsAIModalOpen(false)}></div>
-          <div className={`relative w-full max-w-lg rounded-2xl shadow-2xl p-6 ${isDarkMode ? 'bg-[#1E1E1E] text-white' : 'bg-white text-slate-900'} border ${isDarkMode ? 'border-neutral-700' : 'border-slate-200'}`}>
-             <h2 className="text-lg font-black uppercase tracking-wide mb-4 flex items-center gap-2">
-               <i className={`fas fa-wand-magic-sparkles ${isDarkMode ? 'text-[#E29D1B]' : 'text-[#233F93]'}`}></i>
-               Gerar Fluxo com IA
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 backdrop-blur-md bg-black/40">
+          <div className={`relative w-full max-w-lg rounded-3xl shadow-2xl p-8 ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}`}>
+             <h2 className="text-2xl font-black mb-4 flex items-center gap-3">
+               <i className="fas fa-wand-sparkles text-indigo-500"></i>
+               IA Workflow Designer
              </h2>
-             <p className={`text-sm mb-4 ${textMuted}`}>Descreva o processo que você deseja (ex: "Processo de Vendas B2B" ou "Recrutamento de TI") e a IA criará as fases automaticamente.</p>
              <textarea 
                value={aiPrompt}
                onChange={(e) => setAiPrompt(e.target.value)}
-               className={`w-full h-24 p-3 rounded-xl text-sm font-medium outline-none border focus:ring-2 transition-all resize-none ${isDarkMode ? 'bg-black border-neutral-700 focus:ring-[#E29D1B]' : 'bg-slate-50 border-slate-200 focus:ring-[#233F93]'}`}
-               placeholder="Ex: Pipeline de Venda de Imóveis de Luxo..."
-               disabled={isGenerating}
+               className={`w-full h-32 p-4 rounded-2xl text-sm outline-none border focus:ring-2 transition-all resize-none mb-6 ${isDarkMode ? 'bg-slate-900 border-slate-700 focus:ring-indigo-500' : 'bg-slate-50 border-slate-200 focus:ring-indigo-600'}`}
+               placeholder="Descreva seu processo aqui..."
              />
-             <div className="flex justify-end gap-3 mt-4">
-                <button 
-                  onClick={() => setIsAIModalOpen(false)} 
-                  disabled={isGenerating}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase ${textMuted} hover:opacity-80`}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={handleGeneratePipeline}
-                  disabled={isGenerating || !aiPrompt.trim()}
-                  className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-wide flex items-center gap-2 ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#E29D1B] text-black' : 'bg-[#233F93] text-white'}`}
-                >
-                  {isGenerating ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-bolt"></i>}
-                  {isGenerating ? 'Gerando...' : 'Gerar Pipeline'}
-                </button>
+             <div className="flex justify-end gap-3">
+                <button onClick={() => setIsAIModalOpen(false)} className="px-6 py-2 text-sm font-bold text-slate-500">Cancelar</button>
+                <button onClick={handleGeneratePipeline} className="bg-indigo-600 text-white px-8 py-2 rounded-xl text-sm font-black shadow-lg shadow-indigo-500/20">Criar Pipeline</button>
              </div>
           </div>
         </div>
