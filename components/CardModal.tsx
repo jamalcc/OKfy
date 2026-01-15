@@ -115,7 +115,18 @@ export const CardModal: React.FC<CardModalProps> = ({
     return `${min}m`;
   };
 
-  const getTimeInPhase = (t: number) => formatDuration(Date.now() - t);
+  // Lógica de tempo acumulativo por fase
+  const getTotalTimeInPhase = (phaseName: string) => {
+    const historyDuration = card.history
+      .filter(h => h.phaseName === phaseName)
+      .reduce((acc, curr) => acc + curr.durationMs, 0);
+    
+    const currentSessionDuration = card.phaseName === phaseName 
+      ? (Date.now() - card.phaseUpdatedAt) 
+      : 0;
+
+    return historyDuration + currentSessionDuration;
+  };
 
   const getBankStatus = (banks: any) => {
     if (banks.daycoval === 'Bloqueio Interno' || banks.c6 === 'Bloqueio Interno') return { label: 'Bloqueio', color: 'rose' };
@@ -456,7 +467,9 @@ export const CardModal: React.FC<CardModalProps> = ({
                <div className={`border-t pt-5 ${borderSubtle} transition-colors duration-300`}>
                     <div className="flex items-center justify-between mb-4">
                         <span className={`text-[9px] font-black uppercase tracking-widest ${textMuted}`}>TEMPO EM CADA FASE</span>
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-white/5 text-[#E1A030]' : 'bg-blue-50 text-[#001F8D]'}`}>{getTimeInPhase(card.phaseUpdatedAt)}</span>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-white/5 text-[#E1A030]' : 'bg-blue-50 text-[#001F8D]'}`}>
+                            {formatDuration(getTotalTimeInPhase(card.phaseName))}
+                        </span>
                     </div>
                     <div className="flex gap-1 h-1.5 w-full mb-4">
                         {phases.map((p, i) => (
@@ -464,12 +477,19 @@ export const CardModal: React.FC<CardModalProps> = ({
                         ))}
                     </div>
                     <div className="space-y-2 max-h-[120px] overflow-y-auto scrollbar-thin pr-2">
-                        {card.history.slice().reverse().map((h, i) => (
-                            <div key={i} className="flex items-center justify-between text-[9px]">
-                                <span className={`font-bold truncate max-w-[140px] opacity-70`}>{h.phaseName}</span>
-                                <span className={`font-mono opacity-50`}>{formatDuration(h.durationMs)}</span>
-                            </div>
-                        ))}
+                        {['FASE DA MARIANA', 'CONSULTA AOS BANCOS', 'ENTREVISTA'].map((pName) => {
+                            const duration = getTotalTimeInPhase(pName);
+                            if (duration === 0) return null;
+                            const isCurrent = pName === card.phaseName;
+                            return (
+                                <div key={pName} className="flex items-center justify-between text-[9px]">
+                                    <span className={`font-bold truncate max-w-[140px] ${isCurrent ? (isDarkMode ? 'text-[#E1A030]' : 'text-[#001F8D]') : 'opacity-70'}`}>
+                                        {pName}
+                                    </span>
+                                    <span className={`font-mono opacity-50`}>{formatDuration(duration)}</span>
+                                </div>
+                            );
+                        })}
                     </div>
                </div>
 
