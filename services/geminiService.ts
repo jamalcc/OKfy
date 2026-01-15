@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Initialize the GoogleGenAI client with the API key from process.env.API_KEY
+// Initialize the GoogleGenAI client with the API key from environment variables
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generatePipelineFromPrompt = async (userPrompt: string) => {

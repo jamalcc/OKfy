@@ -180,26 +180,29 @@ const App: React.FC = () => {
   });
 
   return (
-    <div className={`flex h-screen w-screen overflow-hidden font-sans ${isDarkMode ? 'bg-[#0F172A]' : 'bg-slate-50'}`}>
+    <div className={`flex h-screen w-screen overflow-hidden font-sans transition-colors duration-500 ease-in-out ${isDarkMode ? 'bg-[#0F172A] text-slate-200' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* SIDEBAR ESTILO CLICKUP */}
-      <aside className={`w-64 flex-shrink-0 flex flex-col border-r transition-all duration-300 ${isDarkMode ? 'bg-[#1E293B] border-slate-800' : 'bg-slate-900 border-slate-700'}`}>
+      {/* SIDEBAR */}
+      <aside className={`w-64 flex-shrink-0 flex flex-col border-r transition-all duration-300 ${isDarkMode ? 'bg-[#020617] border-slate-800' : 'bg-[#0F172A] border-slate-900'}`}>
         <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg">
+          {/* Logo Box: Amarelo no Dark, Azul Profundo no Light */}
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-colors duration-300 ${isDarkMode ? 'bg-[#E1A030] text-black' : 'bg-[#001F8D] text-white'}`}>
             <i className="fas fa-bolt text-xl"></i>
           </div>
-          <span className="text-white font-black text-xl tracking-tighter">OKfy</span>
+          <span className={`font-black text-xl tracking-tighter text-white`}>OKfy</span>
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1">
-          <button onClick={() => setActiveTab('kanban')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'kanban' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+          {/* Nav Buttons: Dark Mode Active = Amarelo/Preto */}
+          <button onClick={() => setActiveTab('kanban')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'kanban' ? (isDarkMode ? 'bg-[#E1A030] text-black shadow-lg shadow-[#E1A030]/20' : 'bg-[#001F8D] text-white shadow-md') : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
             <i className="fas fa-columns w-5"></i> KanbanBoard
           </button>
-          <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+          <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'dashboard' ? (isDarkMode ? 'bg-[#E1A030] text-black shadow-lg shadow-[#E1A030]/20' : 'bg-[#001F8D] text-white shadow-md') : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
             <i className="fas fa-chart-line w-5"></i> Dashboard
           </button>
+          
           <div className="pt-6 pb-2 px-4">
-            <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Configurações</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Configurações</span>
           </div>
           <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-all">
             <i className="fas fa-user-group w-5"></i> Time
@@ -209,16 +212,16 @@ const App: React.FC = () => {
           </button>
         </nav>
 
-        <div className="p-4 border-t border-slate-800">
-          <button onClick={toggleTheme} className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 transition-all">
-            <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
-            <i className={`fas ${isDarkMode ? 'fa-sun text-yellow-400' : 'fa-moon'}`}></i>
+        <div className={`p-4 border-t transition-colors duration-300 ${isDarkMode ? 'border-slate-800' : 'border-slate-800'}`}>
+          <button onClick={toggleTheme} className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 transition-all group">
+            <span className="uppercase tracking-wider">{isDarkMode ? 'Claro' : 'Escuro'}</span>
+            <i className={`fas transition-transform duration-500 ${isDarkMode ? 'fa-sun text-[#E1A030] rotate-180' : 'fa-moon rotate-0'}`}></i>
           </button>
         </div>
       </aside>
 
       {/* CONTEÚDO PRINCIPAL */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 transition-colors duration-500">
         <Navbar 
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -230,7 +233,7 @@ const App: React.FC = () => {
           onOpenAI={() => setIsAIModalOpen(true)}
         />
 
-        <main className="flex-1 relative overflow-hidden">
+        <main className={`flex-1 relative overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-[#0F172A]' : 'bg-slate-50'}`}>
           {activeTab === 'dashboard' ? (
             <div className="p-10 flex flex-col items-center justify-center h-full">
               <h1 className="text-4xl font-black mb-4">Métricas do Fluxo</h1>
@@ -280,21 +283,21 @@ const App: React.FC = () => {
       )}
 
       {isAIModalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 backdrop-blur-md bg-black/40">
-          <div className={`relative w-full max-w-lg rounded-3xl shadow-2xl p-8 ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}`}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 backdrop-blur-md bg-black/60 animate-in fade-in duration-300">
+          <div className={`relative w-full max-w-lg rounded-3xl shadow-2xl p-8 transition-colors duration-300 ${isDarkMode ? 'bg-[#1E293B] border border-slate-700 text-slate-200' : 'bg-white text-slate-900'}`}>
              <h2 className="text-2xl font-black mb-4 flex items-center gap-3">
-               <i className="fas fa-wand-sparkles text-indigo-500"></i>
+               <i className={`fas fa-wand-sparkles ${isDarkMode ? 'text-[#E1A030]' : 'text-[#001F8D]'}`}></i>
                IA Workflow Designer
              </h2>
              <textarea 
                value={aiPrompt}
                onChange={(e) => setAiPrompt(e.target.value)}
-               className={`w-full h-32 p-4 rounded-2xl text-sm outline-none border focus:ring-2 transition-all resize-none mb-6 ${isDarkMode ? 'bg-slate-900 border-slate-700 focus:ring-indigo-500' : 'bg-slate-50 border-slate-200 focus:ring-indigo-600'}`}
+               className={`w-full h-32 p-4 rounded-2xl text-sm outline-none border focus:ring-1 transition-all resize-none mb-6 ${isDarkMode ? 'bg-[#0F172A] border-slate-700 focus:border-[#E1A030] focus:ring-[#E1A030]' : 'bg-slate-50 border-slate-200 focus:ring-[#001F8D]'}`}
                placeholder="Descreva seu processo aqui..."
              />
              <div className="flex justify-end gap-3">
-                <button onClick={() => setIsAIModalOpen(false)} className="px-6 py-2 text-sm font-bold text-slate-500">Cancelar</button>
-                <button onClick={handleGeneratePipeline} className="bg-indigo-600 text-white px-8 py-2 rounded-xl text-sm font-black shadow-lg shadow-indigo-500/20">Criar Pipeline</button>
+                <button onClick={() => setIsAIModalOpen(false)} className="px-6 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors">Cancelar</button>
+                <button onClick={handleGeneratePipeline} className={`px-8 py-2 rounded-xl text-sm font-black shadow-lg transition-all active:scale-95 ${isDarkMode ? 'bg-[#E1A030] text-black shadow-[#E1A030]/20' : 'bg-[#001F8D] text-white shadow-[#001F8D]/20'}`}>Criar Pipeline</button>
              </div>
           </div>
         </div>

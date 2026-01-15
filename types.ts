@@ -70,6 +70,7 @@ export interface Card {
   tags: Tag[];
   history: PhaseHistory[];
   archived?: boolean; // Nova propriedade
+  assignee?: string; // ID ou Nome do Responsável
 }
 
 // Para o formulário de criação

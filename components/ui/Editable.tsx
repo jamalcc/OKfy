@@ -43,10 +43,11 @@ export const EditableField: React.FC<EditableFieldProps> = ({
   
   const labelColor = isDarkMode ? 'text-slate-500' : 'text-slate-500';
   const textColor = isDarkMode ? 'text-slate-200' : 'text-slate-900';
-  const inputBg = isDarkMode ? 'bg-[#1E1E1E]' : 'bg-white';
-  const hoverBg = isDarkMode ? 'hover:bg-[#1E1E1E]' : 'hover:bg-slate-100';
-  // Cor do foco alterada para amarelo no dark mode
-  const borderFocus = isDarkMode ? 'border-[#E29D1B]' : 'border-[#233F93]';
+  
+  // Fundo do input (inset)
+  const inputBg = isDarkMode ? 'bg-[#020617]' : 'bg-white';
+  const hoverBg = isDarkMode ? 'hover:bg-[#334155]' : 'hover:bg-slate-100';
+  const borderFocus = isDarkMode ? 'border-[#E1A030]' : 'border-[#001F8D]';
 
   return (
     <div className="group mb-4 last:mb-0">
@@ -91,8 +92,8 @@ interface EditableSelectProps {
 export const EditableSelect: React.FC<EditableSelectProps> = ({ label, value, options, onChange, isDarkMode }) => {
     const labelColor = isDarkMode ? 'text-slate-500' : 'text-slate-500';
     const textColor = isDarkMode ? 'text-slate-200' : 'text-slate-700';
-    const hoverBg = isDarkMode ? 'hover:bg-[#1E1E1E] hover:border-neutral-700' : 'hover:bg-slate-100 hover:border-slate-200';
-    const optionBg = isDarkMode ? 'bg-[#1E1E1E] text-slate-200' : 'bg-white text-slate-700';
+    const hoverBg = isDarkMode ? 'hover:bg-[#334155] hover:border-slate-600' : 'hover:bg-slate-100 hover:border-slate-200';
+    const optionBg = isDarkMode ? 'bg-[#1E293B] text-white' : 'bg-white text-slate-700';
 
     return (
         <div className="group mb-4 last:mb-0">
