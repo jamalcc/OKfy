@@ -1,14 +1,17 @@
 
-import React, { useState, useEffect } from 'react';
-import { Card, Phase, NewLeadFormData } from './types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Card, Phase } from './types';
 import { Navbar } from './components/Navbar';
 import { KanbanBoard } from './components/KanbanBoard';
 import { LeadModal } from './components/LeadModal';
 import { CardModal } from './components/CardModal';
+import { PublicLeadForm } from './components/PublicLeadForm'; // Import novo
 import { generatePipelineFromPrompt } from './services/geminiService';
+import { useLeads } from './hooks/useLeads';
+import { formatCPF, formatPhone, validateCPF, formatDuration } from './utils/helpers';
 
 const INITIAL_PHASES: Phase[] = [
-  { name: 'FASE DA MARIANA', color: '#DB2777' }, 
+  { name: 'VERIFICAÇÃO DE SEGURANÇA', color: '#DB2777' }, 
   { name: 'CONSULTA AOS BANCOS', color: '#6366F1' },
   { name: 'ENTREVISTA', color: '#F59E0B' },
   { name: 'ASSINATURA DO CONTRATO', color: '#8B5CF6' },
@@ -20,7 +23,7 @@ const INITIAL_CARDS: Card[] = [
   {
     id: 'ID-882',
     title: 'Ricardo Alcantara',
-    phaseName: 'FASE DA MARIANA',
+    phaseName: 'VERIFICAÇÃO DE SEGURANÇA',
     createdAt: Date.now() - 172800000,
     phaseUpdatedAt: Date.now() - 3600000,
     data: {
@@ -31,33 +34,32 @@ const INITIAL_CARDS: Card[] = [
       hasCertificate: true,
       phone: '(11) 98877-6655',
       marketTime: '5 anos',
-      banks: { pan: 'Sem bloqueio', daycoval: 'Bloqueio Interno', c6: 'Sem bloqueio' }
+      banks: { pan: 'Sem bloqueio', daycoval: 'Bloqueio Interno', c6: 'Sem bloqueio' },
+      contactAttempts: 0,
+      contactSuccess: false,
+      saleType: null,
+      topProducts: ''
     },
     checklist: [],
-    notes: [
-      { author: 'Sistema', text: 'Lead criado via integração Webhook.', timestamp: Date.now() - 172800000, type: 'system' }
-    ],
+    notes: [{ author: 'Sistema', text: 'Lead criado via integração Webhook.', timestamp: Date.now() - 172800000, type: 'system' }],
     tags: [{ id: 't1', text: 'Hot Lead', color: 'indigo' }],
-    history: []
+    history: [],
+    assignee: 'u1'
   }
 ];
 
 const App: React.FC = () => {
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('okfy_theme');
-      return saved === 'dark';
-    }
-    return false;
-  });
-
-  const [activeTab, setActiveTab] = useState<'kanban' | 'dashboard'>('kanban');
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('okfy_theme') === 'dark');
+  const [activeTab, setActiveTab] = useState<'kanban' | 'dashboard' | 'public_form'>('kanban'); // Adicionado public_form
   const [searchQuery, setSearchQuery] = useState('');
   const [phases, setPhases] = useState<Phase[]>(INITIAL_PHASES);
-  const [cards, setCards] = useState<Card[]>(INITIAL_CARDS);
+  const { cards, addLead, updateCard, deleteCard, archiveCard, moveCard } = useLeads(INITIAL_CARDS, phases);
+
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
   const [dropTargetPhase, setDropTargetPhase] = useState<string | null>(null);
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
@@ -65,93 +67,22 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('okfy_theme', isDarkMode ? 'dark' : 'light');
-    if (isDarkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
+    document.documentElement.classList.toggle('dark', isDarkMode);
   }, [isDarkMode]);
 
-  const toggleTheme = () => setIsDarkMode(!isDarkMode);
-  
-  const formatDuration = (ms: number) => {
-    const min = Math.floor(ms / 60000);
-    const hrs = Math.floor(min / 60);
-    const days = Math.floor(hrs / 24);
-    if (days > 0) return `${days}d ${hrs % 24}h`;
-    if (hrs > 0) return `${hrs}h ${min % 60}m`;
-    return `${min}m`;
-  };
+  const selectedCard = useMemo(() => cards.find(c => c.id === selectedCardId) || null, [cards, selectedCardId]);
 
-  const validateCPF = (cpf: string) => {
-    const cleanCPF = cpf.replace(/\D/g, '');
-    if (cleanCPF.length !== 11 || /^(\d)\1{10}$/.test(cleanCPF)) return false;
-    return true;
-  };
+  const filteredCards = useMemo(() => cards.filter(card => {
+    if (card.archived) return false;
+    const q = searchQuery.toLowerCase();
+    return !searchQuery || card.title.toLowerCase().includes(q) || card.data.cpf.includes(q);
+  }), [cards, searchQuery]);
 
-  const formatCPF = (v: string) => v.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  const formatPhone = (v: string) => v.replace(/\D/g, '').slice(0, 11).replace(/^(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-
-  const handleDragStart = (e: React.DragEvent, id: string) => {
-    e.dataTransfer.setData('cardId', id);
-    setDraggedCardId(id);
-  };
-
-  const handleDrop = (e: React.DragEvent, targetPhaseName: string) => {
-    e.preventDefault();
+  const handleDrop = (e: React.DragEvent, targetPhase: string) => {
     const cardId = e.dataTransfer.getData('cardId');
-    
-    setCards(prev => prev.map(c => {
-      if (c.id === cardId && c.phaseName !== targetPhaseName) {
-        const now = Date.now();
-        return { 
-          ...c, 
-          phaseName: targetPhaseName, 
-          phaseUpdatedAt: now,
-          history: [...c.history, { 
-            phaseName: c.phaseName, 
-            durationMs: now - c.phaseUpdatedAt, 
-            color: phases.find(p => p.name === c.phaseName)?.color || '#999', 
-            timestamp: c.phaseUpdatedAt 
-          }] 
-        };
-      }
-      return c;
-    }));
+    moveCard(cardId, targetPhase);
     setDraggedCardId(null);
     setDropTargetPhase(null);
-  };
-
-  const handleUpdateCard = (updatedCard: Card) => {
-    setCards(prev => prev.map(c => c.id === updatedCard.id ? updatedCard : c));
-    setSelectedCard(updatedCard);
-  };
-
-  const handleDeleteCard = (cardId: string) => {
-    if (confirm("Deseja excluir este lead?")) {
-      setCards(prev => prev.filter(c => c.id !== cardId));
-      setSelectedCard(null);
-    }
-  };
-
-  const handleArchiveCard = (cardId: string) => {
-    setCards(prev => prev.map(c => c.id === cardId ? { ...c, archived: true } : c));
-    setSelectedCard(null);
-  };
-
-  const handleCreateLead = (data: NewLeadFormData) => {
-    const newCard: Card = {
-      id: `ID-${Date.now().toString().slice(-3)}`,
-      title: data.title,
-      phaseName: phases[0].name,
-      createdAt: Date.now(),
-      phaseUpdatedAt: Date.now(),
-      data: {
-        ...data,
-        jusbrasil: null, hasCertificate: null,
-        banks: { pan: null, daycoval: null, c6: null }
-      },
-      checklist: [], notes: [], tags: [], history: []
-    };
-    setCards([newCard, ...cards]);
-    setIsCreatingLead(false);
   };
 
   const handleGeneratePipeline = async () => {
@@ -159,13 +90,8 @@ const App: React.FC = () => {
     setIsGenerating(true);
     try {
       const result = await generatePipelineFromPrompt(aiPrompt);
-      if (result && result.phases) {
+      if (result?.phases) {
         setPhases(result.phases);
-        setCards(prev => prev.map(c => ({
-          ...c,
-          phaseName: result.phases[0].name,
-          phaseUpdatedAt: Date.now()
-        })));
         setIsAIModalOpen(false);
       }
     } catch (error) {
@@ -173,67 +99,86 @@ const App: React.FC = () => {
     } finally { setIsGenerating(false); }
   };
 
-  const filteredCards = cards.filter(card => {
-    if (card.archived) return false;
-    if (!searchQuery) return true;
-    return card.title.toLowerCase().includes(searchQuery.toLowerCase()) || card.data.cpf.includes(searchQuery);
-  });
+  // Se o modo formulário público estiver ativo, renderiza apenas ele
+  if (activeTab === 'public_form') {
+    return <PublicLeadForm onSubmit={addLead} onBack={() => setActiveTab('kanban')} isDarkMode={isDarkMode} />;
+  }
 
   return (
-    <div className={`flex h-screen w-screen overflow-hidden font-sans transition-colors duration-500 ease-in-out ${isDarkMode ? 'bg-[#0F172A] text-slate-200' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`flex h-screen w-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkMode ? 'bg-[#0F172A] text-slate-200' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* SIDEBAR */}
-      <aside className={`w-64 flex-shrink-0 flex flex-col border-r transition-all duration-300 ${isDarkMode ? 'bg-[#020617] border-slate-800' : 'bg-[#0F172A] border-slate-900'}`}>
-        <div className="p-6 flex items-center gap-3">
-          {/* Logo Box: Amarelo no Dark, Azul Profundo no Light */}
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-colors duration-300 ${isDarkMode ? 'bg-[#E1A030] text-black' : 'bg-[#001F8D] text-white'}`}>
-            <i className="fas fa-bolt text-xl"></i>
+      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} flex-shrink-0 flex flex-col border-r transition-all duration-300 ${isDarkMode ? 'bg-[#020617] border-slate-800' : 'bg-[#0F172A] border-slate-900'}`}>
+        
+        <div className={`p-6 flex items-center ${isSidebarCollapsed ? 'flex-col justify-center gap-4' : 'justify-between'}`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 ${isDarkMode ? 'bg-[#E1A030] text-black' : 'bg-[#001F8D] text-white'}`}>
+              <i className="fas fa-bolt text-xl"></i>
+            </div>
+            {!isSidebarCollapsed && <span className="font-black text-xl tracking-tighter text-white overflow-hidden whitespace-nowrap">OKfy</span>}
           </div>
-          <span className={`font-black text-xl tracking-tighter text-white`}>OKfy</span>
+          
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+            className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5"
+            title={isSidebarCollapsed ? "Expandir Menu" : "Minimizar Menu"}
+          >
+            <i className={`fas ${isSidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'}`}></i>
+          </button>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-1">
-          {/* Nav Buttons: Dark Mode Active = Amarelo/Preto */}
-          <button onClick={() => setActiveTab('kanban')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'kanban' ? (isDarkMode ? 'bg-[#E1A030] text-black shadow-lg shadow-[#E1A030]/20' : 'bg-[#001F8D] text-white shadow-md') : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-            <i className="fas fa-columns w-5"></i> KanbanBoard
-          </button>
-          <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'dashboard' ? (isDarkMode ? 'bg-[#E1A030] text-black shadow-lg shadow-[#E1A030]/20' : 'bg-[#001F8D] text-white shadow-md') : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-            <i className="fas fa-chart-line w-5"></i> Dashboard
+        <nav className="flex-1 px-4 py-6 space-y-2">
+          <button 
+            onClick={() => setActiveTab('kanban')} 
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start px-4'} py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'kanban' ? (isDarkMode ? 'bg-[#E1A030] text-black shadow-lg shadow-[#E1A030]/20' : 'bg-[#001F8D] text-white') : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            title="Kanban"
+          >
+            <i className="fas fa-columns w-5 text-center"></i>
+            {!isSidebarCollapsed && <span className="ml-3 truncate">Kanban</span>}
           </button>
           
-          <div className="pt-6 pb-2 px-4">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Configurações</span>
+          <button 
+            onClick={() => setActiveTab('dashboard')} 
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start px-4'} py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'dashboard' ? (isDarkMode ? 'bg-[#E1A030] text-black shadow-lg shadow-[#E1A030]/20' : 'bg-[#001F8D] text-white') : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            title="Dashboard"
+          >
+            <i className="fas fa-chart-line w-5 text-center"></i>
+            {!isSidebarCollapsed && <span className="ml-3 truncate">Dashboard</span>}
+          </button>
+
+          {/* Botão para simular o link do cliente */}
+          <div className="pt-4 mt-4 border-t border-white/5">
+             <button 
+                onClick={() => setActiveTab('public_form')} 
+                className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start px-4'} py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-emerald-500 hover:bg-emerald-500/10`}
+                title="Formulário do Cliente"
+              >
+                <i className="fas fa-external-link-alt w-5 text-center"></i>
+                {!isSidebarCollapsed && <span className="ml-3 truncate">Formulário Público</span>}
+              </button>
           </div>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-all">
-            <i className="fas fa-user-group w-5"></i> Time
-          </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-all">
-            <i className="fas fa-cog w-5"></i> Ajustes
-          </button>
         </nav>
 
-        <div className={`p-4 border-t transition-colors duration-300 ${isDarkMode ? 'border-slate-800' : 'border-slate-800'}`}>
-          <button onClick={toggleTheme} className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 transition-all group">
-            <span className="uppercase tracking-wider">{isDarkMode ? 'Claro' : 'Escuro'}</span>
-            <i className={`fas transition-transform duration-500 ${isDarkMode ? 'fa-sun text-[#E1A030] rotate-180' : 'fa-moon rotate-0'}`}></i>
+        <div className="p-4 border-t border-slate-800">
+          <button 
+            onClick={() => setIsDarkMode(!isDarkMode)} 
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 group`}
+            title="Alternar Tema"
+          >
+            {!isSidebarCollapsed && <span className="uppercase tracking-wider">Modo {isDarkMode ? 'Escuro' : 'Claro'}</span>}
+            <i className={`fas transition-transform duration-500 ${isDarkMode ? 'fa-sun text-[#E1A030] rotate-180' : 'fa-moon'} ${!isSidebarCollapsed ? '' : 'text-lg'}`}></i>
           </button>
         </div>
       </aside>
 
-      {/* CONTEÚDO PRINCIPAL */}
-      <div className="flex-1 flex flex-col min-w-0 transition-colors duration-500">
+      <div className="flex-1 flex flex-col min-w-0">
         <Navbar 
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
-          isDarkMode={isDarkMode} 
-          toggleTheme={toggleTheme}
-          onCreateLead={() => setIsCreatingLead(true)}
-          onOpenAI={() => setIsAIModalOpen(true)}
+          searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+          activeTab={activeTab === 'public_form' ? 'kanban' : activeTab} setActiveTab={(t) => setActiveTab(t as any)} 
+          isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)}
+          onCreateLead={() => setIsCreatingLead(true)} onOpenAI={() => setIsAIModalOpen(true)}
         />
 
-        <main className={`flex-1 relative overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-[#0F172A]' : 'bg-slate-50'}`}>
+        <main className={`flex-1 relative overflow-hidden ${isDarkMode ? 'bg-[#0F172A]' : 'bg-slate-50'}`}>
           {activeTab === 'dashboard' ? (
             <div className="p-10 flex flex-col items-center justify-center h-full">
               <h1 className="text-4xl font-black mb-4">Métricas do Fluxo</h1>
@@ -241,63 +186,44 @@ const App: React.FC = () => {
             </div>
           ) : (
             <KanbanBoard 
-              phases={phases}
-              cards={filteredCards}
-              isDarkMode={isDarkMode}
-              onDragStart={handleDragStart}
-              onDrop={handleDrop}
-              onCardClick={setSelectedCard}
-              draggedCardId={draggedCardId}
-              dropTargetPhase={dropTargetPhase}
-              setDropTargetPhase={setDropTargetPhase}
-              formatDuration={formatDuration}
-              onQuickAdd={(phase) => setIsCreatingLead(true)}
+              phases={phases} cards={filteredCards} isDarkMode={isDarkMode}
+              onDragStart={(e, id) => { e.dataTransfer.setData('cardId', id); setDraggedCardId(id); }}
+              onDragEnd={() => { setDraggedCardId(null); setDropTargetPhase(null); }}
+              onDrop={handleDrop} onCardClick={(c) => setSelectedCardId(c.id)}
+              draggedCardId={draggedCardId} dropTargetPhase={dropTargetPhase} setDropTargetPhase={setDropTargetPhase}
+              formatDuration={formatDuration} onQuickAdd={() => setIsCreatingLead(true)}
             />
           )}
         </main>
       </div>
 
       <LeadModal 
-        isOpen={isCreatingLead} 
-        onClose={() => setIsCreatingLead(false)}
-        onSubmit={handleCreateLead}
-        isDarkMode={isDarkMode}
-        formatCPF={formatCPF}
-        formatPhone={formatPhone}
-        validateCPF={validateCPF}
+        isOpen={isCreatingLead} onClose={() => setIsCreatingLead(false)}
+        onSubmit={addLead} isDarkMode={isDarkMode}
+        formatCPF={formatCPF} formatPhone={formatPhone} validateCPF={validateCPF}
       />
       
       {selectedCard && (
         <CardModal 
-          card={selectedCard}
-          phases={phases}
-          onClose={() => setSelectedCard(null)}
-          onUpdate={handleUpdateCard}
-          onDelete={handleDeleteCard}
-          onArchive={handleArchiveCard}
-          isDarkMode={isDarkMode}
-          formatCPF={formatCPF}
-          formatPhone={formatPhone}
-          validateCPF={validateCPF}
+          card={selectedCard} phases={phases}
+          onClose={() => setSelectedCardId(null)}
+          onUpdate={updateCard}
+          onDelete={() => { if(confirm("Excluir?")) deleteCard(selectedCard.id); setSelectedCardId(null); }}
+          onArchive={() => { archiveCard(selectedCard.id); setSelectedCardId(null); }}
+          isDarkMode={isDarkMode} formatCPF={formatCPF} formatPhone={formatPhone} validateCPF={validateCPF}
         />
       )}
 
       {isAIModalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 backdrop-blur-md bg-black/60 animate-in fade-in duration-300">
-          <div className={`relative w-full max-w-lg rounded-3xl shadow-2xl p-8 transition-colors duration-300 ${isDarkMode ? 'bg-[#1E293B] border border-slate-700 text-slate-200' : 'bg-white text-slate-900'}`}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 backdrop-blur-md bg-black/60">
+          <div className={`relative w-full max-w-lg rounded-3xl shadow-2xl p-8 ${isDarkMode ? 'bg-[#1E293B] border-slate-700 text-slate-200' : 'bg-white text-slate-900'}`}>
              <h2 className="text-2xl font-black mb-4 flex items-center gap-3">
-               <i className={`fas fa-wand-sparkles ${isDarkMode ? 'text-[#E1A030]' : 'text-[#001F8D]'}`}></i>
-               IA Workflow Designer
+               <i className={`fas fa-wand-sparkles ${isDarkMode ? 'text-[#E1A030]' : 'text-[#001F8D]'}`}></i> Designer
              </h2>
-             <textarea 
-               value={aiPrompt}
-               onChange={(e) => setAiPrompt(e.target.value)}
-               className={`w-full h-32 p-4 rounded-2xl text-sm outline-none border focus:ring-1 transition-all resize-none mb-6 ${isDarkMode ? 'bg-[#0F172A] border-slate-700 focus:border-[#E1A030] focus:ring-[#E1A030]' : 'bg-slate-50 border-slate-200 focus:ring-[#001F8D]'}`}
-               placeholder="Descreva seu processo aqui..."
-             />
-             <div className="flex justify-end gap-3">
-                <button onClick={() => setIsAIModalOpen(false)} className="px-6 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors">Cancelar</button>
-                <button onClick={handleGeneratePipeline} className={`px-8 py-2 rounded-xl text-sm font-black shadow-lg transition-all active:scale-95 ${isDarkMode ? 'bg-[#E1A030] text-black shadow-[#E1A030]/20' : 'bg-[#001F8D] text-white shadow-[#001F8D]/20'}`}>Criar Pipeline</button>
+             <textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} className={`w-full h-32 p-4 rounded-2xl text-sm border outline-none ${isDarkMode ? 'bg-[#0F172A] border-slate-700 focus:border-[#E1A030]' : 'bg-slate-50 border-slate-200'}`} placeholder="Descreva seu processo..." />
+             <div className="flex justify-end gap-3 mt-6">
+                <button onClick={() => setIsAIModalOpen(false)} className="px-6 py-2 text-sm font-bold text-slate-500">Cancelar</button>
+                <button onClick={handleGeneratePipeline} className={`px-8 py-2 rounded-xl text-sm font-black shadow-lg ${isDarkMode ? 'bg-[#E1A030] text-black' : 'bg-[#001F8D] text-white'}`}>Criar</button>
              </div>
           </div>
         </div>

@@ -35,7 +35,7 @@ export interface PhaseHistory {
 
 // Estrutura do Kanban
 export interface Phase {
-  id?: string; // Opcional pois o Gemini gera apenas name/color as vezes
+  id?: string;
   name: string;
   color: string;
   slaDays?: number;
@@ -55,13 +55,18 @@ export interface LeadData {
   };
   phone: string;
   marketTime: string;
+  // Novos campos para a fase de Entrevista
+  contactAttempts: number; // 0 a 3
+  contactSuccess: boolean; // Novo campo para marcar sucesso
+  saleType: 'Loja' | 'Home Office' | null;
+  topProducts: string;
 }
 
 // O Card Principal
 export interface Card {
   id: string;
   title: string;
-  phaseName: string; // Chave de ligação com Phase
+  phaseName: string; 
   createdAt: number;
   phaseUpdatedAt: number;
   data: LeadData;
@@ -69,8 +74,8 @@ export interface Card {
   notes: Note[];
   tags: Tag[];
   history: PhaseHistory[];
-  archived?: boolean; // Nova propriedade
-  assignee?: string; // ID ou Nome do Responsável
+  archived?: boolean;
+  assignee?: string;
 }
 
 // Para o formulário de criação
