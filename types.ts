@@ -43,9 +43,14 @@ export interface Phase {
 
 // Dados específicos do Lead (Domínio OKfy)
 export interface LeadData {
+  // Campos Comerciais Comuns
   cpf: string;
   email: string;
   source: string;
+  phone: string;
+  
+  // Campos Comerciais Específicos
+  marketTime: string;
   jusbrasil: 'nada encontrado' | 'OK!' | 'Problemas' | null;
   hasCertificate: boolean | null;
   banks: {
@@ -53,20 +58,23 @@ export interface LeadData {
     daycoval: 'Bloqueio Interno' | 'Sem bloqueio' | null;
     c6: 'Bloqueio Interno' | 'Sem bloqueio' | null;
   };
-  phone: string;
-  marketTime: string;
-  // Novos campos para a fase de Entrevista
   contactAttempts: number; // 0 a 3
   contactSuccess: boolean; // Novo campo para marcar sucesso
   saleType: 'Loja' | 'Home Office' | null;
   topProducts: string;
+
+  // Campos Jurídicos Específicos
+  brokerName?: string;
+  targetBank?: string;
+  processDescription?: string;
 }
 
 // O Card Principal
 export interface Card {
   id: string;
   title: string;
-  phaseName: string; 
+  phaseName: string;
+  pipeline: 'commercial' | 'legal'; // Novo campo para distinguir o fluxo
   createdAt: number;
   phaseUpdatedAt: number;
   data: LeadData;

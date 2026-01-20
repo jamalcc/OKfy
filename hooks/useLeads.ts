@@ -9,7 +9,8 @@ export const useLeads = (initialCards: Card[], phases: Phase[]) => {
     const newCard: Card = {
       id: `ID-${Date.now().toString().slice(-3)}`,
       title: data.title,
-      phaseName: phases[0].name,
+      phaseName: phases[0].name, // Assume que estamos adicionando na primeira fase do pipeline atual ou padrão
+      pipeline: 'commercial', // Default para formulário de lead
       createdAt: Date.now(),
       phaseUpdatedAt: Date.now(),
       data: {
@@ -26,10 +27,15 @@ export const useLeads = (initialCards: Card[], phases: Phase[]) => {
       notes: [],
       tags: [],
       history: [],
-      assignee: 'u1' // Atribuição automática simulada
+      assignee: 'u1' 
     };
     setCards(prev => [newCard, ...prev]);
   }, [phases]);
+
+  // Função genérica para adicionar cards (útil para o jurídico no futuro)
+  const addCard = useCallback((card: Card) => {
+      setCards(prev => [card, ...prev]);
+  }, []);
 
   const updateCard = useCallback((updatedCard: Card) => {
     setCards(prev => prev.map(c => c.id === updatedCard.id ? updatedCard : c));
@@ -64,5 +70,5 @@ export const useLeads = (initialCards: Card[], phases: Phase[]) => {
     }));
   }, [phases]);
 
-  return { cards, addLead, updateCard, deleteCard, archiveCard, moveCard };
+  return { cards, addLead, addCard, updateCard, deleteCard, archiveCard, moveCard };
 };

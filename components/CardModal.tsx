@@ -164,36 +164,93 @@ export const CardModal: React.FC<CardModalProps> = ({
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
             {/* Coluna Esquerda: Cadastro Completo */}
             <div className={`w-full lg:w-[320px] p-8 overflow-y-auto border-r ${borderSubtle} flex flex-col shrink-0`}>
-               <h3 className={`text-[10px] font-black uppercase mb-6 tracking-widest ${textMuted}`}>Informações do Lead</h3>
-               <div className="flex flex-col gap-6">
-                   <EditableField label="E-mail Principal" value={card.data.email} onChange={(v) => handleUpdateData('email', v)} isDarkMode={isDarkMode} />
-                   <EditableField label="Telefone / WhatsApp" value={card.data.phone} onChange={(v) => handleUpdateData('phone', formatPhone(v))} isDarkMode={isDarkMode} />
-                   <EditableField label="Documento (CPF)" value={card.data.cpf} onChange={(v) => handleUpdateData('cpf', formatCPF(v))} isDarkMode={isDarkMode} />
-                   <EditableField label="Tempo de Mercado" value={card.data.marketTime} onChange={(v) => handleUpdateData('marketTime', v)} isDarkMode={isDarkMode} />
-               </div>
-               
-               <div className="mt-10 pt-8 border-t border-dashed border-slate-700">
-                   <h3 className={`text-[10px] font-black uppercase mb-4 tracking-widest ${textMuted}`}>Painel de Status</h3>
-                   <div className={`space-y-3 p-5 rounded-2xl border ${isDarkMode ? 'bg-[#0F172A] border-slate-700 shadow-inner' : 'bg-slate-50'}`}>
-                       <div className="flex justify-between items-center text-xs font-bold">
-                          <span className={textMuted}>Jusbrasil</span>
-                          <span className={card.data.jusbrasil === 'OK!' ? 'text-emerald-500' : card.data.jusbrasil === 'Problemas' ? 'text-rose-500' : 'text-slate-400'}>
-                             {card.data.jusbrasil || 'Aguardando'}
-                          </span>
-                       </div>
-                       <div className="flex justify-between items-center text-xs font-bold">
-                          <span className={textMuted}>Bancos</span>
-                          {(() => {
-                            const summary = getBankSummaryStatus();
-                            return <span className={summary.color}>{summary.label}</span>;
-                          })()}
-                       </div>
-                       <div className="flex justify-between items-center text-xs font-bold">
-                          <span className={textMuted}>Certificado</span>
-                          <span className={getCertificateDisplay().color}>{getCertificateDisplay().text}</span>
+               {card.pipeline === 'legal' ? (
+                 <>
+                   <div className="flex items-center gap-2 mb-6">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                             <i className="fas fa-scale-balanced text-xs"></i>
+                        </div>
+                        <h3 className={`text-[10px] font-black uppercase tracking-widest ${textMuted}`}>Dossiê do Processo</h3>
+                   </div>
+                   
+                   <div className={`p-1 rounded-2xl border mb-8 ${isDarkMode ? 'bg-slate-800/30 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className={`p-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-200'} relative`}>
+                            <div className={`absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-md ${isDarkMode ? 'bg-slate-700 text-slate-400' : 'bg-white text-slate-400 border border-slate-200'}`}>
+                                <i className="fas fa-university text-[10px]"></i>
+                            </div>
+                            <div className="pl-10">
+                                <EditableField 
+                                    label="Banco Reclamado" 
+                                    value={card.data.targetBank || ''} 
+                                    onChange={(v) => handleUpdateData('targetBank', v)} 
+                                    isDarkMode={isDarkMode} 
+                                    placeholder="Clique para adicionar" 
+                                />
+                            </div>
+                        </div>
+                        <div className="p-4 relative">
+                            <div className={`absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-md ${isDarkMode ? 'bg-slate-700 text-slate-400' : 'bg-white text-slate-400 border border-slate-200'}`}>
+                                <i className="fas fa-user-tie text-[10px]"></i>
+                            </div>
+                            <div className="pl-10">
+                                <EditableField 
+                                    label="Corretor Envolvido" 
+                                    value={card.data.brokerName || ''} 
+                                    onChange={(v) => handleUpdateData('brokerName', v)} 
+                                    isDarkMode={isDarkMode} 
+                                    placeholder="Clique para adicionar" 
+                                />
+                            </div>
+                        </div>
+                   </div>
+                   
+                   <div className="mt-2">
+                      <div className="flex items-center gap-2 mb-3">
+                          <i className={`fas fa-align-left text-[10px] ${textMuted}`}></i>
+                          <label className={`block text-[10px] font-black uppercase tracking-widest ${textMuted}`}>Descrição do Caso</label>
+                      </div>
+                      <textarea 
+                          value={card.data.processDescription || ''}
+                          onChange={(e) => handleUpdateData('processDescription', e.target.value)}
+                          placeholder="Relate os detalhes..."
+                          className={`w-full h-48 p-4 text-xs font-medium rounded-xl border-2 outline-none transition-all resize-none leading-relaxed ${isDarkMode ? 'bg-[#0F172A] border-slate-700 focus:border-[#E1A030] text-slate-200 placeholder:text-slate-700' : 'bg-slate-50 border-slate-200 focus:border-[#001F8D] placeholder:text-slate-300'}`}
+                      />
+                   </div>
+                 </>
+               ) : (
+                 <>
+                   <h3 className={`text-[10px] font-black uppercase mb-6 tracking-widest ${textMuted}`}>Informações do Lead</h3>
+                   <div className="flex flex-col gap-6">
+                       <EditableField label="E-mail Principal" value={card.data.email} onChange={(v) => handleUpdateData('email', v)} isDarkMode={isDarkMode} />
+                       <EditableField label="Telefone / WhatsApp" value={card.data.phone} onChange={(v) => handleUpdateData('phone', formatPhone(v))} isDarkMode={isDarkMode} />
+                       <EditableField label="Documento (CPF)" value={card.data.cpf} onChange={(v) => handleUpdateData('cpf', formatCPF(v))} isDarkMode={isDarkMode} />
+                       <EditableField label="Tempo de Mercado" value={card.data.marketTime} onChange={(v) => handleUpdateData('marketTime', v)} isDarkMode={isDarkMode} />
+                   </div>
+                   
+                   <div className="mt-10 pt-8 border-t border-dashed border-slate-700">
+                       <h3 className={`text-[10px] font-black uppercase mb-4 tracking-widest ${textMuted}`}>Painel de Status</h3>
+                       <div className={`space-y-3 p-5 rounded-2xl border ${isDarkMode ? 'bg-[#0F172A] border-slate-700 shadow-inner' : 'bg-slate-50'}`}>
+                           <div className="flex justify-between items-center text-xs font-bold">
+                              <span className={textMuted}>Jusbrasil</span>
+                              <span className={card.data.jusbrasil === 'OK!' ? 'text-emerald-500' : card.data.jusbrasil === 'Problemas' ? 'text-rose-500' : 'text-slate-400'}>
+                                 {card.data.jusbrasil || 'Aguardando'}
+                              </span>
+                           </div>
+                           <div className="flex justify-between items-center text-xs font-bold">
+                              <span className={textMuted}>Bancos</span>
+                              {(() => {
+                                const summary = getBankSummaryStatus();
+                                return <span className={summary.color}>{summary.label}</span>;
+                              })()}
+                           </div>
+                           <div className="flex justify-between items-center text-xs font-bold">
+                              <span className={textMuted}>Certificado</span>
+                              <span className={getCertificateDisplay().color}>{getCertificateDisplay().text}</span>
+                           </div>
                        </div>
                    </div>
-               </div>
+                 </>
+               )}
             </div>
 
             {/* Coluna Central: O Fluxo de Trabalho */}
